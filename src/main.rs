@@ -28,9 +28,9 @@ const LONG_ABOUT: &str = "\
 Map which Phlex views and components call each other.
 
 It scans app/ for Phlex classes and finds every call between them:
-  shorthand      Win(win: w), FormField do ... end, Heading { ... }
-  render         render Components::Win.new(...)
-  new            Components::Prompt.new(...), such as in a turbo stream
+  shorthand      BookCard(book: b), Card do ... end, CardTitle { ... }
+  render         render Components::BookCard.new(...)
+  new            Components::BookCard.new(...), such as in a turbo stream
 Controllers, ERB templates, mailers and jobs that render a Phlex class
 are entry points: the tops of the tree.
 
@@ -45,11 +45,11 @@ called from that block, sit under that component.";
 const AFTER_HELP: &str = "\
 Examples:
   phlex-tree                                    every entry point and what it calls
-  phlex-tree --root Views::Wins::Index          one view and everything below it
-  phlex-tree --nested --root Views::Wins::Index the same, laid out as the page is
-  phlex-tree --callers Components::Container    every class that uses Container
-  phlex-tree --nested --callers Components::Container
-                                                what each caller puts inside Container
+  phlex-tree --root Views::Books::Index         one view and everything below it
+  phlex-tree --nested --root Views::Books::Index the same, laid out as the page is
+  phlex-tree --callers Components::Card         every class that uses Card
+  phlex-tree --nested --callers Components::Card
+                                                what each caller puts inside Card
   phlex-tree --unused                           components nothing calls
   phlex-tree --diff                             what this branch changed, against main
   phlex-tree --diff origin/main --format json   the same, for an agent
@@ -89,7 +89,7 @@ struct Cli {
     #[arg(short, long)]
     output: Option<PathBuf>,
 
-    /// Show only the tree below this class. A short name like Win works.
+    /// Show only the tree below this class. A short name like BookCard works when only one class has it.
     #[arg(long)]
     root: Option<String>,
 
