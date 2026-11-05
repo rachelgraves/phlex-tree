@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root {
+  --bg: #faf7f0; --panel: #ffffff; --text: #2b2b2b; --muted: #6b6b6b;
+  --line: #e3ded2; --accent: #005663; --component: #00707f; --view: #2f5fb3;
+  --layout: #8a3fa0; --entry: #946200; --added: #1d7a3a; --added-bg: #e3f4e7;
+  --removed: #b3261e; --removed-bg: #fbe5e3; --hover: #f1ece0;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1d1f21; --panel: #26292c; --text: #e6e3dc; --muted: #a3a09a;
+    --line: #3a3d40; --accent: #5cc4d1; --component: #5cc4d1; --view: #8fb3ff;
+    --layout: #d39ae6; --entry: #e5b85c; --added: #7fd99a; --added-bg: #1f3a28;
+    --removed: #ff9a92; --removed-bg: #47231f; --hover: #303437;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1d1f21; --panel: #26292c; --text: #e6e3dc; --muted: #a3a09a;
+  --line: #3a3d40; --accent: #5cc4d1; --component: #5cc4d1; --view: #8fb3ff;
+  --layout: #d39ae6; --entry: #e5b85c; --added: #7fd99a; --added-bg: #1f3a28;
+  --removed: #ff9a92; --removed-bg: #47231f; --hover: #303437;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+header { padding: 16px; border-bottom: 1px solid var(--line); }
+h1 { margin: 0 0 8px; font-size: 1.4rem; }
+.stats { color: var(--muted); }
+.stats b { color: var(--text); }
+main { display: grid; grid-template-columns: minmax(280px, 420px) 1fr; min-height: calc(100vh - 110px); }
+@media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+aside { border-right: 1px solid var(--line); padding: 16px; overflow: auto; max-height: calc(100vh - 110px); }
+section { padding: 16px; overflow: auto; }
+input[type=search] {
+  width: 100%; padding: 8px 12px; font: inherit; color: var(--text);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+}
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.tabs button {
+  font: inherit; padding: 4px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--text);
+}
+.tabs button[aria-pressed=true] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+ul.tree, ul.tree ul { list-style: none; margin: 0; padding-left: 16px; }
+ul.tree { padding-left: 0; }
+.row { display: flex; align-items: baseline; gap: 4px; padding: 2px 4px; border-radius: 6px; cursor: pointer; }
+.row:hover { background: var(--hover); }
+.row.selected { outline: 2px solid var(--accent); }
+.toggle { width: 1.2em; color: var(--muted); flex: none; text-align: center; }
+.name { overflow-wrap: anywhere; }
+.k-component { color: var(--component); } .k-view { color: var(--view); }
+.k-layout { color: var(--layout); } .k-entry { color: var(--entry); }
+.s-added { background: var(--added-bg); color: var(--added); font-weight: 600; }
+.s-removed { background: var(--removed-bg); color: var(--removed); font-weight: 600; text-decoration: none; }
+.count, .muted { color: var(--muted); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px; }
+h2 { margin: 0 0 4px; font-size: 1.2rem; overflow-wrap: anywhere; }
+h3 { margin: 16px 0 4px; font-size: 1rem; }
+code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.95em; }
+.list { list-style: none; padding: 0; margin: 0; }
+.list li { padding: 2px 0; }
+.list a { color: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: var(--line); }
+#graph { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; }
+#graph svg { max-width: none; height: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>__TITLE__</h1>
+  <div class="stats" id="stats"></div>
+  <div class="legend">
+    <span class="k-entry">entry point</span>
+    <span class="k-view">view</span>
+    <span class="k-component">component</span>
+    <span class="k-layout">layout</span>
+    <span class="s-added">added</span>
+    <span class="s-removed">removed</span>
+  </div>
+</header>
+<main>
+  <aside>
+    <input type="search" id="search" placeholder="Search by name" aria-label="Search by name">
+    <div class="tabs" id="tabs"></div>
+    <ul class="tree" id="tree"></ul>
+  </aside>
+  <section id="detail"><p class="muted">Pick a name on the left to see who it calls and who calls it.</p></section>
+</main>
+<script id="data" type="application/json">__DATA__</script>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "neutral", maxEdges: 2000 });
+
+const data = JSON.parse(document.getElementById("data").textContent);
+const nodes = new Map(data.nodes.map(n => [n.name, n]));
+const out = new Map(), inc = new Map();
+for (const e of data.edges) {
+  (out.get(e.from) || out.set(e.from, []).get(e.from)).push(e);
+  (inc.get(e.to) || inc.set(e.to, []).get(e.to)).push(e);
+}
+const isDiff = "added_edges" in data;
+const changes = isDiff ? data.added_nodes.length + data.removed_nodes.length + data.added_edges.length + data.removed_edges.length : 0;
+
+const stats = document.getElementById("stats");
+const count = k => data.nodes.filter(n => n.kind === k).length;
+stats.innerHTML = `<b>${count("view")}</b> views · <b>${count("component")}</b> components · <b>${count("entry")}</b> entry points · <b>${data.edges.length}</b> calls · <b>${data.unused.length}</b> unused`
+  + (isDiff ? ` · <b>${changes}</b> changes` : "");
+
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) k === "class" ? n.className = v : n.setAttribute(k, v);
+  for (const kid of kids) n.append(kid);
+  return n;
+};
+const kindClass = name => "k-" + (nodes.get(name)?.kind || "component");
+const statusClass = s => s ? " s-" + s : "";
+const mark = s => s === "added" ? "+ " : s === "removed" ? "− " : "";
+
+let selectedRow = null;
+function row(name, status, count, hasKids) {
+  const r = el("div", { class: "row" },
+    el("span", { class: "toggle" }, hasKids ? "▸" : "·"),
+    el("span", { class: "name " + kindClass(name) + statusClass(status) }, mark(status) + name));
+  if (count > 1) r.append(el("span", { class: "count" }, " ×" + count));
+  return r;
+}
+function treeItem(name, status = nodes.get(name)?.status, count = 1, filter = null) {
+  const kids = (out.get(name) || []).filter(e => !filter || filter(e));
+  const li = el("li");
+  const r = row(name, status, count, kids.length > 0);
+  li.append(r);
+  let open = false, ul = null;
+  r.addEventListener("click", () => {
+    select(name, r);
+    if (!kids.length) return;
+    open = !open;
+    r.firstChild.textContent = open ? "▾" : "▸";
+    if (open && !ul) {
+      ul = el("ul");
+      for (const e of kids) ul.append(treeItem(e.to, e.status, e.count, filter));
+      li.append(ul);
+    }
+    if (ul) ul.hidden = !open;
+  });
+  return li;
+}
+
+const memo = new Map();
+function hasChange(name, seen = new Set()) {
+  if (memo.has(name)) return memo.get(name);
+  if (seen.has(name)) return false;
+  seen.add(name);
+  const r = !!nodes.get(name)?.status || (out.get(name) || []).some(e => e.status || hasChange(e.to, seen));
+  memo.set(name, r);
+  return r;
+}
+
+const treeEl = document.getElementById("tree");
+const views = {
+  "Tree": () => data.roots.map(n => treeItem(n)),
+  "Unused": () => data.unused.map(n => treeItem(n)),
+};
+if (isDiff) {
+  views["Changes"] = () => data.roots.filter(n => hasChange(n))
+    .map(n => treeItem(n, undefined, 1, e => e.status || hasChange(e.to)));
+}
+const tabs = document.getElementById("tabs");
+function show(label) {
+  for (const b of tabs.children) b.setAttribute("aria-pressed", b.textContent === label);
+  treeEl.replaceChildren(...views[label]());
+}
+for (const label of Object.keys(views)) {
+  const b = el("button", { type: "button" }, label);
+  b.addEventListener("click", () => { search.value = ""; show(label); });
+  tabs.append(b);
+}
+show(isDiff ? "Changes" : "Tree");
+
+const search = document.getElementById("search");
+search.addEventListener("input", () => {
+  const q = search.value.trim().toLowerCase();
+  if (!q) return show(tabs.querySelector("[aria-pressed=true]")?.textContent || "Tree");
+  const hits = data.nodes.filter(n => n.name.toLowerCase().includes(q)).slice(0, 200);
+  treeEl.replaceChildren(...hits.map(n => treeItem(n.name)));
+});
+
+const detail = document.getElementById("detail");
+function link(name, extra = "") {
+  const a = el("a", { class: kindClass(name) }, name);
+  a.addEventListener("click", () => select(name));
+  const li = el("li", {}, a);
+  if (extra) li.append(el("span", { class: "muted" }, " " + extra));
+  return li;
+}
+let renderId = 0;
+async function select(name, r = null) {
+  if (selectedRow) selectedRow.classList.remove("selected");
+  if (r) { r.classList.add("selected"); selectedRow = r; }
+  const n = nodes.get(name);
+  const callers = inc.get(name) || [], kids = out.get(name) || [];
+  const where = e => `${mark(e.status)}${e.file}:${e.line}${e.count > 1 ? " ×" + e.count : ""}`;
+  detail.replaceChildren(
+    el("h2", { class: kindClass(name) }, name),
+    el("div", { class: "muted" }, `${n.kind}${n.parent ? " · inherits " + n.parent : ""}`),
+    el("div", {}, el("code", {}, `${n.file}:${n.line}`)),
+    el("h3", {}, `Called by (${callers.length})`),
+    el("ul", { class: "list" }, ...callers.map(e => link(e.from, where(e)))),
+    el("h3", {}, `Calls (${kids.length})`),
+    el("ul", { class: "list" }, ...kids.map(e => link(e.to, `${e.via}${e.count > 1 ? " ×" + e.count : ""}`))),
+    el("div", { id: "graph" }, "Drawing graph…"),
+  );
+  const id = ++renderId;
+  try {
+    const { svg } = await mermaid.render("m" + id, mermaidFor(name));
+    if (id === renderId) document.getElementById("graph").innerHTML = svg;
+  } catch (err) {
+    document.getElementById("graph").textContent = "Could not draw the graph: " + err.message;
+  }
+}
+
+function mermaidFor(root) {
+  const ids = new Map();
+  const id = name => ids.get(name) || ids.set(name, "n" + ids.size).get(name);
+  const lines = ["graph LR"], seen = new Set();
+  const edge = e => {
+    const arrow = e.status === "removed" ? "-.->" : "-->";
+    lines.push(`${id(e.from)} ${arrow} ${id(e.to)}`);
+  };
+  for (const e of inc.get(root) || []) edge(e);
+  const queue = [[root, 0]];
+  while (queue.length && lines.length < 300) {
+    const [name, depth] = queue.shift();
+    if (seen.has(name) || depth >= 4) continue;
+    seen.add(name);
+    for (const e of out.get(name) || []) { edge(e); queue.push([e.to, depth + 1]); }
+  }
+  for (const [name, i] of ids) {
+    const label = name.replace(/"/g, "'");
+    const n = nodes.get(name) || {};
+    lines.push(`${i}["${label}"]:::${n.status || n.kind || "component"}`);
+  }
+  lines.push(`style ${id(root)} stroke-width:3px`);
+  lines.push("classDef added fill:#e3f4e7,stroke:#1d7a3a,color:#14532d");
+  lines.push("classDef removed fill:#fbe5e3,stroke:#b3261e,color:#7f1d1d");
+  lines.push("classDef entry stroke:#946200");
+  lines.push("classDef view stroke:#2f5fb3");
+  lines.push("classDef component stroke:#00707f");
+  lines.push("classDef layout stroke:#8a3fa0");
+  return lines.join("\n");
+}
+</script>
+</body>
+</html>
